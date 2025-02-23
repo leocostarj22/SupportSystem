@@ -47,6 +47,7 @@ Praxisistem é uma solução moderna para gestão de tickets e atendimento ao cl
 ## Instalação
 
 1. Clone o repositório
-```bash
-git clone [url-do-repositorio]
-```
+
+git clone https://github.com/leocostarj22/SupportSystem.git
+
+
