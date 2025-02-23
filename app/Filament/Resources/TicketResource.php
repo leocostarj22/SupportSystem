@@ -1,0 +1,214 @@
+<?php
+
+namespace App\Filament\Resources;
+
+use App\Filament\Resources\TicketResource\Pages;
+use App\Filament\Resources\TicketResource\RelationManagers;
+use App\Models\Ticket;
+use App\Models\TicketComment;
+use Filament\Forms;
+use Filament\Forms\Form;
+use Filament\Resources\Resource;
+use Filament\Tables;
+use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\SoftDeletingScope;
+
+class TicketResource extends Resource
+{
+    protected static ?string $model = Ticket::class;
+
+    protected static ?string $navigationIcon = 'heroicon-o-ticket';
+    protected static ?string $navigationGroup = 'Support';
+    protected static ?int $navigationSort = 3;
+
+    public static function form(Form $form): Form
+    {
+        return $form
+            ->schema([
+                Forms\Components\Section::make('Ticket Information')
+                    ->schema([
+                        Forms\Components\TextInput::make('title')
+                            ->required()
+                            ->maxLength(255),
+                        Forms\Components\Textarea::make('description')
+                            ->required()
+                            ->columnSpanFull(),
+                        Forms\Components\Select::make('category_id')
+                            ->relationship('category', 'name')
+                            ->required()
+                            ->searchable()
+                            ->preload(),
+                        Forms\Components\Select::make('status')
+                            ->required()
+                            ->options([
+                                'open' => 'Open',
+                                'in_progress' => 'In Progress',
+                                'closed' => 'Closed',
+                            ])
+                            ->default('open'),
+                        Forms\Components\Select::make('priority')
+                            ->required()
+                            ->options([
+                                'low' => 'Low',
+                                'medium' => 'Medium',
+                                'high' => 'High',
+                            ])
+                            ->default('medium'),
+                        // Remove the user_id select field and replace with a hidden field
+                        Forms\Components\Hidden::make('user_id')
+                            ->default(auth()->id()),
+                        
+                        Forms\Components\Select::make('assigned_to')
+                            ->relationship('assignedTo', 'name', function ($query) {
+                                return $query->whereHas('role', function ($query) {
+                                    $query->where('name', 'Support');
+                                });
+                            })
+                            ->searchable()
+                            ->preload()
+                            ->required()
+                            ->label('Atribuir para:')
+                            ->nullable(),
+                        Forms\Components\Hidden::make('due_date')
+                            ->default(now()),
+                        Forms\Components\RichEditor::make('comment')
+                            ->label('Comment')
+                            ->toolbarButtons([
+                                'attachFiles',
+                                'blockquote',
+                                'bold',
+                                'bulletList',
+                                'codeBlock',
+                                'h2',
+                                'h3',
+                                'italic',
+                                'link',
+                                'orderedList',
+                                'redo',
+                                'strike',
+                                'subscript',
+                                'superscript',
+                                'table',
+                                'underline',
+                                'undo'
+                            ])
+                            ->fileAttachmentsDisk('public')
+                            ->fileAttachmentsDirectory('ticket-attachments')
+                            ->fileAttachmentsVisibility('public')
+                            ->columnSpanFull()
+                            ->maxLength(65535)
+                            ->placeholder('Add your comment here...')
+                            ->columnSpanFull(),
+                    ])->columns(2),
+            ]);
+    }
+
+    public static function table(Table $table): Table
+    {
+        return $table
+            ->columns([
+                Tables\Columns\TextColumn::make('title')
+                    ->searchable()
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('category.name')
+                    ->sortable(),
+                Tables\Columns\BadgeColumn::make('status')
+                    ->colors([
+                        'danger' => 'open',
+                        'warning' => 'in_progress',
+                        'success' => 'closed',
+                    ]),
+                Tables\Columns\BadgeColumn::make('priority')
+                    ->colors([
+                        'success' => 'low',
+                        'warning' => 'medium',
+                        'danger' => 'high',
+                    ]),
+                Tables\Columns\TextColumn::make('user.name')
+                    ->label('Created By')
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('assignedTo.name')
+                    ->label('Assigned To')
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('due_date')
+                    ->dateTime()
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('created_at')
+                    ->dateTime()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('comment')
+                    ->html()
+                    ->wrap()
+                    ->words(10)
+                    ->tooltip(function (Tables\Columns\TextColumn $column): ?string {
+                        return $column->getState();
+                    }),
+            ])
+            ->filters([
+                Tables\Filters\SelectFilter::make('status')
+                    ->options([
+                        'open' => 'Open',
+                        'in_progress' => 'In Progress',
+                        'closed' => 'Closed',
+                    ]),
+                Tables\Filters\SelectFilter::make('priority')
+                    ->options([
+                        'low' => 'Low',
+                        'medium' => 'Medium',
+                        'high' => 'High',
+                    ]),
+                Tables\Filters\SelectFilter::make('assigned_to')
+                    ->relationship('assignedTo', 'name')
+                    ->searchable()
+                    ->preload()
+                    ->label('Assigned To'),
+            ])
+            ->actions([
+                Tables\Actions\EditAction::make(),
+                Tables\Actions\DeleteAction::make(),
+            ])
+            ->bulkActions([
+                Tables\Actions\BulkActionGroup::make([
+                    Tables\Actions\DeleteBulkAction::make(),
+                ]),
+            ]);
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            RelationManagers\CommentsRelationManager::class,
+        ];
+    }
+
+    public static function getPages(): array
+    {
+        return [
+            'index' => Pages\ListTickets::route('/'),
+            'create' => Pages\CreateTicket::route('/create'),
+            'edit' => Pages\EditTicket::route('/{record}/edit'),
+        ];
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        $user = auth()->user();
+
+        if ($user->role?->name === 'Super Admin') {
+            return $query;
+        }
+
+        if ($user->role?->name === 'Técnico') {
+            return $query->where(function ($query) use ($user) {
+                $query->where('assigned_to', $user->id)
+                    ->orWhere('user_id', $user->id);
+            });
+        }
+
+        // Para clientes, mostrar apenas seus próprios tickets
+        return $query->where('user_id', $user->id);
+    }
+}
