@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Models\TicketComment;
 
 class Ticket extends Model
 {
@@ -18,6 +20,8 @@ class Ticket extends Model
         'assigned_to',
         'due_date',
         'comment',
+        'rating',
+        'rating_comment',
     ];
 
     protected $casts = [
@@ -39,8 +43,17 @@ class Ticket extends Model
         return $this->belongsTo(Category::class);
     }
 
-    public function comments()
+    public function comments(): HasMany
     {
         return $this->hasMany(TicketComment::class);
+    }
+
+    protected static function booted()
+    {
+        static::updated(function ($ticket) {
+            if ($ticket->comments()->count() === 1 && !$ticket->first_response_at) {
+                $ticket->update(['first_response_at' => now()]);
+            }
+        });
     }
 }

@@ -5,14 +5,20 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\TicketResource\Pages;
 use App\Filament\Resources\TicketResource\RelationManagers;
 use App\Models\Ticket;
-use App\Models\TicketComment;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Filament\Tables\Columns\Summarizers\Average;
+use Filament\Tables\Columns\TextColumn;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use App\Filament\Resources\TicketResource\RelationManagers\CommentsRelationManager;
+use Filament\Actions\Action;
+// Remove duplicate imports and use correct namespaces
+use Mokhosh\FilamentRating\Components\Rating;
+use Mokhosh\FilamentRating\Columns\RatingColumn;
 
 class TicketResource extends Resource
 {
@@ -100,6 +106,25 @@ class TicketResource extends Resource
                             ->maxLength(65535)
                             ->placeholder('Add your comment here...')
                             ->columnSpanFull(),
+                        Forms\Components\Section::make('Avaliação')
+                            ->schema([
+                                Rating::make('rating')
+                                    ->label('Avaliação do Cliente')
+                                    ->visible(function ($get) {
+                                        return $get('status') === 'closed';
+                                    }),
+                                Forms\Components\Textarea::make('rating_comment')
+                                    ->label('Comentário da Avaliação')
+                                    ->visible(function ($get) {
+                                        return $get('status') === 'closed';
+                                    })
+                                    ->columnSpanFull(),
+                            ])
+                            ->visible(function ($get) {
+                                return $get('status') === 'closed';
+                            })
+                            ->collapsed()
+                            ->collapsible(),
                     ])->columns(2),
             ]);
     }
@@ -145,6 +170,14 @@ class TicketResource extends Resource
                     ->tooltip(function (Tables\Columns\TextColumn $column): ?string {
                         return $column->getState();
                     }),
+                // In the table method, replace the TextColumn for rating with:
+                RatingColumn::make('rating')
+                    ->label('Avaliação')
+                    ->visible(fn ($record) => $record?->status === 'closed')
+                    ->summarize(Average::make()
+                        ->label('Média de Avaliações')
+                    )
+                    ->sortable(),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('status')
@@ -179,7 +212,7 @@ class TicketResource extends Resource
     public static function getRelations(): array
     {
         return [
-            RelationManagers\CommentsRelationManager::class,
+            CommentsRelationManager::class,
         ];
     }
 
@@ -210,5 +243,34 @@ class TicketResource extends Resource
 
         // Para clientes, mostrar apenas seus próprios tickets
         return $query->where('user_id', $user->id);
+    }
+
+    public static function getActions(): array
+    {
+        return [
+            Actions\Action::make('rate')
+                ->label('Avaliar Atendimento')
+                ->icon('heroicon-o-star')
+                ->visible(fn ($record) => $record->status === 'closed' && $record->rating === null && $record->user_id === auth()->id())
+                ->form([
+                    Rating::make('rating')
+                        ->label('Sua avaliação')
+                        ->required(),
+                    Forms\Components\Textarea::make('rating_comment')
+                        ->label('Comentário (opcional)')
+                        ->placeholder('Deixe seu feedback sobre o atendimento...'),
+                ])
+                ->action(function (array $data, $record): void {
+                    $record->update([
+                        'rating' => $data['rating'],
+                        'rating_comment' => $data['rating_comment'],
+                    ]);
+                    
+                    Notification::make()
+                        ->title('Obrigado pela sua avaliação!')
+                        ->success()
+                        ->send();
+                }),
+        ];
     }
 }
