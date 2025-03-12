@@ -19,6 +19,7 @@ use Filament\Actions\Action;
 // Remove duplicate imports and use correct namespaces
 use Mokhosh\FilamentRating\Components\Rating;
 use Mokhosh\FilamentRating\Columns\RatingColumn;
+//use Filament\Infolists\Infolist;
 
 class TicketResource extends Resource
 {
@@ -78,6 +79,7 @@ class TicketResource extends Resource
                             ->nullable(),
                         Forms\Components\Hidden::make('due_date')
                             ->default(now()),
+
                         Forms\Components\RichEditor::make('comment')
                             ->label('Comment')
                             ->toolbarButtons([
@@ -106,6 +108,8 @@ class TicketResource extends Resource
                             ->maxLength(65535)
                             ->placeholder('Add your comment here...')
                             ->columnSpanFull(),
+                        Forms\Components\FileUpload::make('image')
+                            ->image(),
                         Forms\Components\Section::make('Avaliação')
                             ->schema([
                                 Rating::make('rating')
@@ -128,7 +132,22 @@ class TicketResource extends Resource
                     ])->columns(2),
             ]);
     }
-
+    /*public static function infolist(Infolist $infolist): Infolist
+    {
+        return $infolist
+            ->schema([
+                TextEntry::make('title'),
+                ColorEntry::make('color'),
+                TextEntry::make('description')
+                    ->columnSpanFull(),
+                TextEntry::make('url')
+                    ->label('URL')
+                    ->columnSpanFull()
+                    ->url(fn (Link $record): string => '#' . urlencode($record->url)),
+                ImageEntry::make('image'),
+            ]);
+    }
+            */
     public static function table(Table $table): Table
     {
         return $table
@@ -169,7 +188,11 @@ class TicketResource extends Resource
                     ->words(10)
                     ->tooltip(function (Tables\Columns\TextColumn $column): ?string {
                         return $column->getState();
+                
                     }),
+                Tables\Columns\ImageColumn::make('image')
+                    ->height('100%')
+                    ->width('100%'),
                 // In the table method, replace the TextColumn for rating with:
                 RatingColumn::make('rating')
                     ->label('Avaliação')

@@ -95,7 +95,8 @@ class UserResource extends Resource
                     ->boolean()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('last_login_at')
-                    ->dateTime()
+                    ->dateTime('d/m/Y H:i:s')
+                    ->label('Último Login')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()

@@ -5,6 +5,7 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\ActivityLogResource\Pages;
 use App\Models\ActivityLog;
 use Filament\Forms;
+use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -15,6 +16,8 @@ use Carbon\Carbon;
 use Filament\Tables\Actions\Action;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Response;
+use Filament\Tables\Actions\ExportAction;
+use Filament\Tables\Actions\ExportBulkAction;
 
 
 
@@ -22,11 +25,8 @@ class ActivityLogResource extends Resource
 {
     protected static ?string $model = ActivityLog::class;
     protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-list';
-    protected static ?string $navigationGroup = 'Sistema';
-    protected static ?int $navigationSort = 5;
-    protected static bool $shouldRegisterNavigation = true;
-    protected static ?string $modelLabel = 'Log de Atividade';
-    protected static ?string $pluralModelLabel = 'Logs de Atividades';
+    protected static ?string $navigationGroup = 'Settings';
+    protected static ?int $navigationSort = 4;
 
     public static function table(Table $table): Table
     {
@@ -34,189 +34,127 @@ class ActivityLogResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('user.name')
                     ->label('Usuário')
-                    ->sortable()
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('action')
-                    ->label('Ação')
+                    ->searchable()
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('event')
+                    ->label('Evento')
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
-                        'create' => 'success',
-                        'update' => 'warning',
-                        'delete' => 'danger',
-                        'login' => 'info',
-                        'logout' => 'gray',
-                        default => 'primary',
+                        'login' => 'success',
+                        'logout' => 'danger',
+                        default => 'gray',
                     }),
-                Tables\Columns\TextColumn::make('module')
-                    ->label('Módulo')
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('description')
-                    ->label('Descrição')
-                    ->wrap()
-                    ->searchable()
-                    ->limit(50),
-                Tables\Columns\TextColumn::make('ip_address')
-                    ->label('IP')
-                    ->toggleable(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Data/Hora')
                     ->dateTime('d/m/Y H:i:s')
                     ->sortable(),
+                Tables\Columns\TextColumn::make('ip_address')
+                    ->label('Endereço IP')
+                    ->searchable(),
+                Tables\Columns\TextColumn::make('user_agent')
+                    ->label('Navegador')
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+            ])
+            ->actions([
+                Action::make('export')
+                    ->label('Exportar JSON')
+                    ->icon('heroicon-o-document-arrow-down')
+                    ->color('success')
+                    ->action(function (ActivityLog $record) {
+                        $data = [
+                            'user_name' => $record->user->name,
+                            'event' => $record->event,
+                            'created_at' => $record->created_at->format('d/m/Y H:i:s'),
+                            'ip_address' => $record->ip_address,
+                            'user_agent' => $record->user_agent,
+                        ];
+                        
+                        $filename = 'activity-log-' . now()->format('Y-m-d-H-i-s') . '.json';
+                        
+                        return response()->json($data)
+                            ->header('Content-Disposition', "attachment; filename={$filename}");
+                    })
+            ])
+            ->headerActions([
+                Tables\Actions\Action::make('exportAll')
+                    ->label('Exportar JSON')
+                    ->icon('heroicon-o-document-arrow-down')
+                    ->color('success')
+                    ->action(function ($livewire) {
+                        $filters = $livewire->tableFilters;
+                        $query = ActivityLog::query()->with('user');
+                        
+                        if (!empty($filters)) {
+                            if (!empty($filters['event'])) {
+                                $query->where('event', $filters['event']);
+                            }
+                            if (!empty($filters['user_id'])) {
+                                $query->where('user_id', $filters['user_id']);
+                            }
+                        }
+                        
+                        $logs = $query->get()->map(function ($record) {
+                            return [
+                                'user_name' => $record->user->name,
+                                'event' => $record->event,
+                                'created_at' => $record->created_at->format('d/m/Y H:i:s'),
+                                'ip_address' => $record->ip_address,
+                                'user_agent' => $record->user_agent,
+                            ];
+                        })->toArray();
+                        
+                        $filename = 'activity-logs-' . now()->format('Y-m-d-H-i-s') . '.json';
+                        
+                        return response()->streamDownload(function () use ($logs) {
+                            echo json_encode($logs, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+                        }, $filename, [
+                            'Content-Type' => 'application/json',
+                            'Content-Disposition' => 'attachment; filename="' . $filename . '"'
+                        ]);
+                    })
+            ])
+            ->actions([
+                Tables\Actions\Action::make('export')
+                    ->label('Exportar JSON')
+                    ->icon('heroicon-o-document-arrow-down')
+                    ->color('success')
+                    ->action(function (ActivityLog $record) {
+                        $data = [
+                            'user_name' => $record->user->name,
+                            'event' => $record->event,
+                            'created_at' => $record->created_at->format('d/m/Y H:i:s'),
+                            'ip_address' => $record->ip_address,
+                            'user_agent' => $record->user_agent,
+                        ];
+                        
+                        $filename = 'activity-log-' . now()->format('Y-m-d-H-i-s') . '.json';
+                        
+                        return response()->streamDownload(function () use ($data) {
+                            echo json_encode($data, JSON_PRETTY_PRINT);
+                        }, $filename, [
+                            'Content-Type' => 'application/json',
+                        ]);
+                    })
             ])
             ->defaultSort('created_at', 'desc')
             ->filters([
-                Filter::make('created_at')
-                    ->form([
-                        Forms\Components\DatePicker::make('created_from')
-                            ->label('Data Inicial'),
-                        Forms\Components\DatePicker::make('created_until')
-                            ->label('Data Final'),
-                    ])
-                    ->query(function (Builder $query, array $data): Builder {
-                        return $query
-                            ->when(
-                                $data['created_from'],
-                                fn (Builder $query, $date): Builder => $query->whereDate('created_at', '>=', $date),
-                            )
-                            ->when(
-                                $data['created_until'],
-                                fn (Builder $query, $date): Builder => $query->whereDate('created_at', '<=', $date),
-                            );
-                    })
-                    ->indicateUsing(function (array $data): array {
-                        $indicators = [];
-                        if ($data['created_from'] ?? null) {
-                            $indicators[] = Indicator::make('Desde ' . Carbon::parse($data['created_from'])->format('d/m/Y'));
-                        }
-                        if ($data['created_until'] ?? null) {
-                            $indicators[] = Indicator::make('Até ' . Carbon::parse($data['created_until'])->format('d/m/Y'));
-                        }
-                        return $indicators;
-                    }),
-                Tables\Filters\SelectFilter::make('action')
-                    ->multiple()
-                    ->label('Ação')
+                Tables\Filters\SelectFilter::make('event')
                     ->options([
                         'login' => 'Login',
                         'logout' => 'Logout',
-                        'create' => 'Criação',
-                        'update' => 'Atualização',
-                        'delete' => 'Exclusão',
-                    ]),
-                Tables\Filters\SelectFilter::make('module')
-                    ->multiple()
-                    ->label('Módulo')
-                    ->options([
-                        'auth' => 'Autenticação',
-                        'tickets' => 'Tickets',
-                        'users' => 'Usuários',
-                        'categories' => 'Categorias',
-                    ]),
-            ])
-            ->actions([
-                Tables\Actions\ViewAction::make(),
-            ])
-            ->headerActions([
-                Action::make('download_json')
-                    ->label('Download JSON')
-                    ->icon('heroicon-o-arrow-down-tray')
-                    ->action(function ($livewire) {
-                        $query = ActivityLog::with('user');
-                        
-                        // Apply date filter
-                        $dateFilter = $livewire->tableFilters['created_at'] ?? null;
-                        if ($dateFilter) {
-                            if (!empty($dateFilter['created_from'])) {
-                                $query->whereDate('created_at', '>=', $dateFilter['created_from']);
-                            }
-                            if (!empty($dateFilter['created_until'])) {
-                                $query->whereDate('created_at', '<=', $dateFilter['created_until']);
-                            }
+                    ])
+                    ->query(function ($query, array $data) {
+                        if (isset($data['value'])) {
+                            $query->where('event', $data['value']);
                         }
-                        
-                        // Apply action filter
-                        $actionFilter = $livewire->tableFilters['action'] ?? null;
-                        if ($actionFilter && is_array($actionFilter)) {
-                            $query->whereIn('action', array_values($actionFilter));
-                        }
-                        
-                        // Apply module filter
-                        $moduleFilter = $livewire->tableFilters['module'] ?? null;
-                        if ($moduleFilter && is_array($moduleFilter)) {
-                            $query->whereIn('module', array_values($moduleFilter));
-                        }
-                        
-                        $logs = $query->get()
-                            ->map(function ($log) {
-                                return [
-                                    'usuario' => $log->user->name,
-                                    'acao' => $log->action,
-                                    'modulo' => $log->module,
-                                    'descricao' => $log->description,
-                                    'ip' => $log->ip_address,
-                                    'data' => $log->created_at->format('d/m/Y H:i:s'),
-                                ];
-                            });
-                    
-                        $jsonContent = json_encode($logs, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-                        $fileName = 'logs-de-atividades-' . now()->format('d-m-Y') . '.json';
-                    
-                        return response($jsonContent)
-                            ->header('Content-Type', 'application/json')
-                            ->header('Content-Disposition', 'attachment; filename="' . $fileName . '"');
                     }),
-            ])
-            ->headerActions([
-                Action::make('download_json')
-                    ->label('Download JSON')
-                    ->icon('heroicon-o-arrow-down-tray')
-                    ->action(function ($livewire) {
-                        $query = ActivityLog::with('user');
-                        
-                        // Apply date filter
-                        $dateFilter = $livewire->tableFilters['created_at'] ?? null;
-                        if ($dateFilter) {
-                            if (!empty($dateFilter['created_from'])) {
-                                $query->whereDate('created_at', '>=', $dateFilter['created_from']);
-                            }
-                            if (!empty($dateFilter['created_until'])) {
-                                $query->whereDate('created_at', '<=', $dateFilter['created_until']);
-                            }
-                        }
-                        
-                        // Apply action filter
-                        $actionFilter = $livewire->tableFilters['action'] ?? null;
-                        if ($actionFilter && is_array($actionFilter)) {
-                            $query->whereIn('action', array_values($actionFilter));
-                        }
-                        
-                        // Apply module filter
-                        $moduleFilter = $livewire->tableFilters['module'] ?? null;
-                        if ($moduleFilter && is_array($moduleFilter)) {
-                            $query->whereIn('module', array_values($moduleFilter));
-                        }
-                        
-                        $logs = $query->get()
-                            ->map(function ($log) {
-                                return [
-                                    'usuario' => $log->user->name,
-                                    'acao' => $log->action,
-                                    'modulo' => $log->module,
-                                    'descricao' => $log->description,
-                                    'ip' => $log->ip_address,
-                                    'data' => $log->created_at->format('d/m/Y H:i:s'),
-                                ];
-                            });
-                    
-                        $jsonContent = json_encode($logs, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-                        $fileName = 'logs-de-atividades-' . now()->format('d-m-Y') . '.json';
-                    
-                        return response($jsonContent)
-                            ->header('Content-Type', 'application/json')
-                            ->header('Content-Disposition', 'attachment; filename="' . $fileName . '"');
-                    }),
-            ])
-            ->poll('60s');
+                Tables\Filters\SelectFilter::make('user_id')
+                    ->label('Usuário')
+                    ->relationship('user', 'name')
+                    ->preload()
+                    ->searchable()
+            ]);
     }
 
     public static function getPages(): array

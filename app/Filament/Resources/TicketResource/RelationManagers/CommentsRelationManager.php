@@ -137,7 +137,9 @@ class CommentsRelationManager extends RelationManager
                 Tables\Actions\CreateAction::make()
                     ->label('Enviar')
                     ->icon('heroicon-o-paper-airplane')
+                    
                     ->form([
+
                         Forms\Components\RichEditor::make('comment')
                             ->label('')
                             ->required()
@@ -168,6 +170,7 @@ class CommentsRelationManager extends RelationManager
                             ->maxLength(65535)
                             ->placeholder('Add your comment here...')
                             ->columnSpanFull(),
+                        
                         Forms\Components\Hidden::make('user_id')
                             ->default(auth()->id()),
                     ])

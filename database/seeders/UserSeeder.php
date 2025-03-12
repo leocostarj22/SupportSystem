@@ -11,12 +11,17 @@ class UserSeeder extends Seeder
 {
     public function run(): void
     {
+        // Create Roles first
+        $superAdmin = Role::create(['name' => 'Super Admin']);
+        $manager = Role::create(['name' => 'Manager']);
+        $support = Role::create(['name' => 'Support']);
+
         // Create Super Admin
         User::create([
             'name' => 'Super Admin',
             'email' => 'admin@admin.com',
             'password' => Hash::make('password'),
-            'role_id' => Role::where('name', 'Super Admin')->first()->id,
+            'role_id' => $superAdmin->id,
             'is_active' => true,
         ]);
 
@@ -25,7 +30,7 @@ class UserSeeder extends Seeder
             'name' => 'Manager User',
             'email' => 'manager@example.com',
             'password' => Hash::make('password'),
-            'role_id' => Role::where('name', 'Manager')->first()->id,
+            'role_id' => $manager->id,
             'is_active' => true,
         ]);
 
@@ -34,7 +39,7 @@ class UserSeeder extends Seeder
             'name' => 'Support User',
             'email' => 'support@example.com',
             'password' => Hash::make('password'),
-            'role_id' => Role::where('name', 'Support')->first()->id,
+            'role_id' => $support->id,
             'is_active' => true,
         ]);
     }
