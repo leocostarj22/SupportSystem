@@ -14,19 +14,36 @@ use App\Filament\Resources\EventResource;
 use Filament\Actions;
 use Saade\FilamentFullCalendar\Actions\CreateAction;
 use Saade\FilamentFullCalendar\Data\EventData;
+use Illuminate\Database\Eloquent\Model;
+use Filament\Forms\Form;
+use Saade\FilamentFullCalendar\Actions\EditAction;
+use Saade\FilamentFullCalendar\Actions\DeleteAction;
 
 class CalendarWidget extends FullCalendarWidget
 {
+    public Model | string | null $model = Event::class;
+
     public function createEvent(array $data): void
     {
-        $data['user_id'] = auth()->id();
-        Event::create($data);
+        Event::create([
+            'title' => $data['title'],
+            'description' => $data['description'] ?? null,
+            'start' => $data['start'],
+            'end' => $data['end'],
+            'color' => $data['color'],
+            'all_day' => $data['all_day'] ?? false,
+            'user_id' => auth()->id(),
+        ]);
     }
 
     public function updateEvent(array $data): void
     {
         $event = Event::find($data['id']);
-        $event->update($data);
+        if ($event) {
+            $event->fill($data);
+            $event->user_id = $event->user_id ?? auth()->id();
+            $event->save();
+        }
     }
 
     public function fetchEvents(array $fetchInfo): array
@@ -50,13 +67,8 @@ class CalendarWidget extends FullCalendarWidget
                     ->extendedProps([
                         'description' => $event->description
                     ])
-                    ->url(
-                        url: EventResource::getUrl('edit', ['record' => $event]),
-                        shouldOpenUrlInNewTab: false
-                    )
             )
             ->toArray();
-            
     }
 
     public function getFormSchema(): array
@@ -64,48 +76,36 @@ class CalendarWidget extends FullCalendarWidget
         return [
             TextInput::make('title')
                 ->label('Título')
-                ->required(),
+                ->required()
+                ->maxLength(255),
             Textarea::make('description')
-                ->label('Descrição'),
+                ->label('Descrição')
+                ->maxLength(65535),
             DateTimePicker::make('start')
                 ->label('Início')
                 ->required(),
             DateTimePicker::make('end')
                 ->label('Fim')
-                ->required(),
+                ->required()
+                ->after('start'),
             ColorPicker::make('color')
                 ->label('Cor')
                 ->required(),
             Toggle::make('all_day')
                 ->label('Dia inteiro')
                 ->default(false),
+            Forms\Components\Hidden::make('user_id')
+                ->default(auth()->id()),
         ];
     }
 
-    protected function modalActions(): array
-    {
-        return [
-            Actions\EditAction::make()
-                ->mountUsing(
-                    function (Event $record, Forms\Form $form, array $arguments) {
-                        $form->fill([
-                            'title' => $record->title,
-                            'description' => $record->description,
-                            'start' => $arguments['event']['start'] ?? $record->start,
-                            'end' => $arguments['event']['end'] ?? $record->end,
-                            'color' => $record->color,
-                            'all_day' => $record->all_day,
-                        ]);
-                    }
-                ),
-            Actions\DeleteAction::make(),
-        ];
-    }
 
+    
     protected function headerActions(): array
     {
         return [
             CreateAction::make()
+                ->label('Criar Evento')
                 ->mountUsing(
                     function (Forms\Form $form, array $arguments) {
                         $form->fill([
@@ -117,6 +117,25 @@ class CalendarWidget extends FullCalendarWidget
                 )
         ];
     }
+
+    protected function modalActions(): array
+ {
+     return [
+         EditAction::make()
+             ->mountUsing(
+                 function (Event $record, Forms\Form $form, array $arguments) {
+                     $form->fill([
+                        'title' => $record->title,
+                        'color' => $record->color,
+                        'start' => $arguments['event']['start'] ?? $record->start,
+                        'end' => $arguments['event']['end'] ?? $record->end,
+                        'user_id' => auth()->id(),
+                     ]);
+                 }
+             ),
+         DeleteAction::make(),
+     ];
+ }
 
     protected function getOptions(): array
     {
@@ -134,6 +153,9 @@ class CalendarWidget extends FullCalendarWidget
             'eventDrop' => true,
             'eventResize' => true,
             'select' => true,
+            'eventClick' => 'function(info) {
+                info.jsEvent.preventDefault();
+            }',
             'eventDidMount' => 'function(info) {
                 if (typeof tippy !== "undefined") {
                     tippy(info.el, {

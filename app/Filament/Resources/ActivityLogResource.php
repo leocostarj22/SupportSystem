@@ -64,7 +64,7 @@ class ActivityLogResource extends Resource
                     ->action(function (ActivityLog $record) {
                         $data = [
                             'user_name' => $record->user->name,
-                            'event' => $record->event,
+                            'event' => $record->event === 'login' ? 'Login' : 'Logout',
                             'created_at' => $record->created_at->format('d/m/Y H:i:s'),
                             'ip_address' => $record->ip_address,
                             'user_agent' => $record->user_agent,
@@ -72,8 +72,11 @@ class ActivityLogResource extends Resource
                         
                         $filename = 'activity-log-' . now()->format('Y-m-d-H-i-s') . '.json';
                         
-                        return response()->json($data)
-                            ->header('Content-Disposition', "attachment; filename={$filename}");
+                        return response()->streamDownload(function () use ($data) {
+                            echo json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+                        }, $filename, [
+                            'Content-Type' => 'application/json',
+                        ]);
                     })
             ])
             ->headerActions([
@@ -83,21 +86,26 @@ class ActivityLogResource extends Resource
                     ->color('success')
                     ->action(function ($livewire) {
                         $filters = $livewire->tableFilters;
-                        $query = ActivityLog::query()->with('user');
+                        $query = ActivityLog::query()
+                            ->with('user')
+                            ->where(function ($query) {
+                                $query->where('event', 'login')
+                                      ->orWhere('event', 'logout');
+                            });
                         
                         if (!empty($filters)) {
-                            if (!empty($filters['event'])) {
-                                $query->where('event', $filters['event']);
+                            if (!empty($filters['event']['value'])) {
+                                $query->where('event', $filters['event']['value']);
                             }
-                            if (!empty($filters['user_id'])) {
-                                $query->where('user_id', $filters['user_id']);
+                            if (!empty($filters['user_id']['value'])) {
+                                $query->where('user_id', $filters['user_id']['value']);
                             }
                         }
                         
                         $logs = $query->get()->map(function ($record) {
                             return [
                                 'user_name' => $record->user->name,
-                                'event' => $record->event,
+                                'event' => $record->event === 'login' ? 'Login' : 'Logout',
                                 'created_at' => $record->created_at->format('d/m/Y H:i:s'),
                                 'ip_address' => $record->ip_address,
                                 'user_agent' => $record->user_agent,
@@ -114,29 +122,6 @@ class ActivityLogResource extends Resource
                         ]);
                     })
             ])
-            ->actions([
-                Tables\Actions\Action::make('export')
-                    ->label('Exportar JSON')
-                    ->icon('heroicon-o-document-arrow-down')
-                    ->color('success')
-                    ->action(function (ActivityLog $record) {
-                        $data = [
-                            'user_name' => $record->user->name,
-                            'event' => $record->event,
-                            'created_at' => $record->created_at->format('d/m/Y H:i:s'),
-                            'ip_address' => $record->ip_address,
-                            'user_agent' => $record->user_agent,
-                        ];
-                        
-                        $filename = 'activity-log-' . now()->format('Y-m-d-H-i-s') . '.json';
-                        
-                        return response()->streamDownload(function () use ($data) {
-                            echo json_encode($data, JSON_PRETTY_PRINT);
-                        }, $filename, [
-                            'Content-Type' => 'application/json',
-                        ]);
-                    })
-            ])
             ->defaultSort('created_at', 'desc')
             ->filters([
                 Tables\Filters\SelectFilter::make('event')
@@ -144,10 +129,15 @@ class ActivityLogResource extends Resource
                         'login' => 'Login',
                         'logout' => 'Logout',
                     ])
-                    ->query(function ($query, array $data) {
-                        if (isset($data['value'])) {
-                            $query->where('event', $data['value']);
+                    ->label('Tipo de Evento')
+                    ->query(function (Builder $query, array $data): Builder {
+                        if (!empty($data['value'])) {
+                            return $query->where('event', $data['value']);
                         }
+                        return $query->where(function ($query) {
+                            $query->where('event', 'login')
+                                  ->orWhere('event', 'logout');
+                        });
                     }),
                 Tables\Filters\SelectFilter::make('user_id')
                     ->label('Usuário')

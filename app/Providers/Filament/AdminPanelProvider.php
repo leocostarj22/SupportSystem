@@ -29,7 +29,15 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
-            ->plugin(FilamentFullCalendarPlugin::make())
+            ->plugin(
+                FilamentFullCalendarPlugin::make()
+                    ->selectable()
+                    ->editable()
+                    ->schedulerLicenseKey('GPL-My-Project-Is-Open-Source')
+                    ->config([
+                        'locale' => 'pt-br',
+                    ])
+            )
             ->login()
             ->brandLogo(asset('images/praxisistem.png'))
             ->favicon(asset('images/favicon.png'))
