@@ -17,8 +17,9 @@ use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
-
 use App\Filament\Pages\Tenancy\EditUserProfile;
+use App\Filament\Widgets\CalendarWidget;
+use Saade\FilamentFullCalendar\FilamentFullCalendarPlugin;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -28,6 +29,7 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
+            ->plugin(FilamentFullCalendarPlugin::make())
             ->login()
             ->brandLogo(asset('images/praxisistem.png'))
             ->favicon(asset('images/favicon.png'))
@@ -42,6 +44,7 @@ class AdminPanelProvider extends PanelProvider
             ->tenantProfile(EditUserProfile::class)
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
             ->widgets([
+                CalendarWidget::class,
                 Widgets\AccountWidget::class,
                 Widgets\FilamentInfoWidget::class,
             ])

@@ -64,6 +64,10 @@ class User extends Authenticatable
         return $this->belongsTo(Role::class);
     }
 
+    public function events(): HasMany
+    {
+        return $this->hasMany(Event::class);
+    }
     // Add this method to check permissions
     public function hasPermission($permission)
     {

@@ -41,9 +41,24 @@ class RoleSeeder extends Seeder
 
         // Assign specific permissions to Support
         $supportPermissions = Permission::whereIn('slug', [
-            'view-tickets', 'create-tickets', 'edit-tickets', 'view-categories'
+            'view-tickets', 'create-tickets', 'edit-tickets', 'view-categories',
+            'view-assigned-tickets', 'reply-tickets', 'update-ticket-status',
+            'view-support-tickets', 'handle-assigned-tickets'
         ])->get();
         
         $support->permissions()->attach($supportPermissions);
+
+        // Create Consumer
+        $consumer = Role::create([
+            'name' => 'Consumer',
+            'description' => 'Regular user who can create and view their own tickets'
+        ]);
+
+        // Assign specific permissions to Consumer
+        $consumerPermissions = Permission::whereIn('slug', [
+            'view-tickets', 'create-tickets', 'view-own-tickets', 'reply-tickets'
+        ])->get();
+        
+        $consumer->permissions()->attach($consumerPermissions);
     }
 }

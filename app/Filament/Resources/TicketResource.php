@@ -257,10 +257,11 @@ class TicketResource extends Resource
             return $query;
         }
 
-        if ($user->role?->name === 'Técnico') {
+        if ($user->role?->name === 'Support') {
             return $query->where(function ($query) use ($user) {
                 $query->where('assigned_to', $user->id)
-                    ->orWhere('user_id', $user->id);
+                      ->orWhereNull('assigned_to')
+                      ->orWhere('user_id', $user->id);
             });
         }
 

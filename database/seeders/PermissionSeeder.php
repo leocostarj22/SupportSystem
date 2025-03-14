@@ -34,6 +34,9 @@ class PermissionSeeder extends Seeder
             ['name' => 'Edit Tickets', 'slug' => 'edit-tickets', 'group' => 'ticket'],
             ['name' => 'Delete Tickets', 'slug' => 'delete-tickets', 'group' => 'ticket'],
             ['name' => 'Assign Tickets', 'slug' => 'assign-tickets', 'group' => 'ticket'],
+            ['name' => 'View Assigned Tickets', 'slug' => 'view-assigned-tickets', 'group' => 'ticket'],
+            ['name' => 'Handle Support Tickets', 'slug' => 'handle-support-tickets', 'group' => 'ticket'],
+            ['name' => 'View Support Queue', 'slug' => 'view-support-queue', 'group' => 'ticket'],
 
             // Category Management
             ['name' => 'View Categories', 'slug' => 'view-categories', 'group' => 'category'],

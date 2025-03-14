@@ -32,16 +32,11 @@ class RoleResource extends Resource
                             ->maxLength(65535)
                             ->columnSpanFull(),
                         Forms\Components\CheckboxList::make('permissions')
-                            ->options([
-                                'view_users' => 'View Users',
-                                'manage_users' => 'Manage Users',
-                                'view_tickets' => 'View Tickets',
-                                'manage_tickets' => 'Manage Tickets',
-                                'view_categories' => 'View Categories',
-                                'manage_categories' => 'Manage Categories',
-                                'view_roles' => 'View Roles',
-                                'manage_roles' => 'Manage Roles',
-                            ])
+                            ->relationship(
+                                'permissions',
+                                'name',
+                                modifyQueryUsing: fn ($query) => $query->orderBy('name')
+                            )
                             ->columns(2)
                             ->columnSpanFull(),
                     ])
