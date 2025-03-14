@@ -182,17 +182,20 @@ class TicketResource extends Resource
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('comment')
+                /*Tables\Columns\TextColumn::make('comment')
                     ->html()
                     ->wrap()
-                    ->words(10)
+                    ->words(5)
                     ->tooltip(function (Tables\Columns\TextColumn $column): ?string {
                         return $column->getState();
                 
                     }),
+                    
                 Tables\Columns\ImageColumn::make('image')
                     ->height('100%')
                     ->width('100%'),
+                    */
+                    
                 // In the table method, replace the TextColumn for rating with:
                 RatingColumn::make('rating')
                     ->label('Avaliação')

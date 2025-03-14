@@ -134,6 +134,23 @@ class CalendarWidget extends FullCalendarWidget
             'eventDrop' => true,
             'eventResize' => true,
             'select' => true,
+            'eventDidMount' => 'function(info) {
+                if (typeof tippy !== "undefined") {
+                    tippy(info.el, {
+                        content: info.event.extendedProps.description || info.event.title,
+                        placement: "top",
+                        trigger: "mouseenter",
+                        interactive: true
+                    });
+                }
+            }',
+            'eventMouseEnter' => 'function(info) {
+                info.el.style.cursor = "pointer";
+            }',
+            'selectMirror' => true,
+            'unselectAuto' => true,
+            'selectOverlap' => false,
+            'eventOverlap' => false,
         ];
     }
 
