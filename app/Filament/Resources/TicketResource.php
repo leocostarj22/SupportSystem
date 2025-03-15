@@ -24,9 +24,8 @@ use Mokhosh\FilamentRating\Columns\RatingColumn;
 class TicketResource extends Resource
 {
     protected static ?string $model = Ticket::class;
-
     protected static ?string $navigationIcon = 'heroicon-o-ticket';
-    protected static ?string $navigationGroup = 'Support';
+    protected static ?string $navigationGroup = 'Suporte Técnico';
     protected static ?int $navigationSort = 3;
 
     public static function form(Form $form): Form

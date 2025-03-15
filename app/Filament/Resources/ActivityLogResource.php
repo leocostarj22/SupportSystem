@@ -25,7 +25,8 @@ class ActivityLogResource extends Resource
 {
     protected static ?string $model = ActivityLog::class;
     protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-list';
-    protected static ?string $navigationGroup = 'Settings';
+    protected static ?string $navigationGroup = 'Configurações';
+    protected static ?string $modelLabel = 'Logs de Atividades';
     protected static ?int $navigationSort = 4;
 
     public static function table(Table $table): Table
